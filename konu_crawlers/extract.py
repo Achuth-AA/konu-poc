@@ -220,7 +220,7 @@ def parse_inr(value: Any) -> float | None:
     except ValueError:
         return None
     rest = s[m.end():].strip().split(" ")[0].strip(".") if s[m.end():].strip() else ""
-    return num * _UNITS.get(rest, 1)
+    return round(num * _UNITS.get(rest, 1), 2)
 
 
 def parse_number(value: Any) -> float | None:
