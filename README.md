@@ -6,6 +6,19 @@ classifieds. Every source yields the same normalised `Record` (price in INR,
 area in sq ft, BHK, locality, lat/long, poster, RERA id, …) and keeps the
 untouched source payload in `raw`.
 
+## How the backend works
+
+![Konu backend workflow: a timer on the GCP server runs due crawl jobs; results are saved to the database (or the site is retried in 12 h if it refused us, or next round if it was too slow), new listings get their details filled in and cleaned, the CSV is rewritten; the dashboard API reads the same database through a Vercel proxy; merges to main are tested, built and redeployed by GitHub Actions](docs/backend-workflow.png)
+
+1. **Crawling loop (GCP VM, container `konu-crawler`)**: every minute the scheduler checks which of
+   the 45 jobs are due, runs each crawl in its own process with a hard time limit, saves results
+   (updating listings it has seen before), backs off 12 h from sites that refuse it, fills in each new
+   listing's details, and rewrites `hyderabad_listings.csv`.
+2. **Serving the dashboard (container `konu-api`)**: a read-only API over the same database; the
+   Vercel dashboard reaches it through a proxy that adds the secret key.
+3. **Shipping code (GitHub Actions)**: every merge to `main` runs the tests, builds the image and
+   redeploys the VM, then checks `/api/health`.
+
 ```bash
 pip install -r requirements.txt          # requests, bs4, lxml (+ playwright for Quikr)
 playwright install chromium              # only needed for Quikr / --render
