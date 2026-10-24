@@ -9,9 +9,12 @@ export default async function handler(req, res) {
     res.status(500).json({ detail: 'BACKEND_URL is not set in Vercel environment variables' })
     return
   }
-  const path = [].concat(req.query.path || []).join('/')
-  const params = new URLSearchParams(req.query)
+  // Take the path from req.url: outside Next.js, Vercel does not fill req.query.path for [...path].js
+  const incoming = new URL(req.url, 'http://localhost')
+  const path = incoming.pathname.replace(/^\/api\/?/, '')
+  const params = incoming.searchParams
   params.delete('path')
+  params.delete('...path')
   const url = `${base.replace(/\/$/, '')}/api/${path}${params.toString() ? `?${params}` : ''}`
   try {
     const upstream = await fetch(url, {
