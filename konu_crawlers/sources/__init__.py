@@ -16,6 +16,7 @@ from . import (  # noqa: F401
     olx,
     proptiger,
     quikr,
+    realestateindia,
     roofandfloor,
     squareyards,
     sulekha,

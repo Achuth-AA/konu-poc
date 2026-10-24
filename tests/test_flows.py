@@ -17,10 +17,10 @@ from konu_crawlers.http import BlockedError, CaptchaRequired, Fetcher, Response
 from .conftest import FakeFetcher, load
 
 
-def test_all_19_sources_registered():
-    assert len(REGISTRY) == 19
+def test_all_20_sources_registered():
+    assert len(REGISTRY) == 20
     assert {"ts_rera", "hmda", "ghmc", "igrs", "bhubharati", "nobroker", "magicbricks", "99acres", "housing", "squareyards",
-            "makaan", "proptiger", "roofandfloor", "indiaproperty", "commonfloor", "olx", "quikr", "sulekha", "justdial"} == set(REGISTRY)
+            "makaan", "proptiger", "roofandfloor", "realestateindia", "indiaproperty", "commonfloor", "olx", "quikr", "sulekha", "justdial"} == set(REGISTRY)
 
 
 @pytest.mark.parametrize("s,v", [("₹1.25 Cr", 12_500_000), ("45 Lac", 4_500_000), ("25,000", 25_000), (9500000, 9_500_000), ("Rs. 2.5 Lakhs", 250_000)])
@@ -230,3 +230,15 @@ def test_doctor_saves_pages_and_report(tmp_path, monkeypatch):
     assert rent["outcome"] == "ok" and rent["records"] == 30 and rent["requests"][0]["file"]
     assert (out / "magicbricks__rent" / rent["requests"][0]["file"]).exists()
     assert (tmp_path / "doc.zip").exists()
+
+
+def test_realestateindia_posts_load_more_batches():
+    first = "https://www.realestateindia.com/hyderabad-property/flats-apartments-for-sale.htm"
+    endpoint = "https://www.realestateindia.com/Functions/property_fetch_results.php"
+    frag = load("realestateindia_frag_sale.html")
+    f = FakeFetcher({first: load("realestateindia_sale.html"),
+                     endpoint: lambda m, u, kw: frag if kw["data"]["pageno"] == "1" else "<div></div>"})
+    recs = list(get_crawler("realestateindia", fetcher=f).crawl("hyderabad", "sale", max_pages=3))
+    posts = [kw["data"]["pageno"] for m, u, kw in f.calls if m == "POST"]
+    assert posts == ["1", "2"]  # batch 3 empty → stop
+    assert len(recs) == len({r.source_id for r in recs}) >= 35

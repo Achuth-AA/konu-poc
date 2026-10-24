@@ -1,6 +1,6 @@
 # konu-poc
 
-Crawlers for 19 Hyderabad / Telangana real-estate data sources: government
+Crawlers for 20 Hyderabad / Telangana real-estate data sources: government
 registers (RERA, HMDA, GHMC, IGRS, Bhu Bharati), the major listing portals and
 classifieds. Every source yields the same normalised `Record` (price in INR,
 area in sq ft, BHK, locality, lat/long, poster, RERA id, …) and keeps the
@@ -60,6 +60,7 @@ sites that block non-Indian IPs can then be fixed against the real pages.
 | 17 | **Quikr Homes** `quikr` | sale, rent | headless Chromium; JSON-LD merged with cards | ✅ |
 | 18 | **Sulekha Property** `sulekha` | sale, rent, latest, agents | ad cards / JSON-LD; `latest` = city landing page | ✅ `latest`; search pages geo-redirect to /403 |
 | 19 | **JustDial** `justdial` | agents, builders | JSON-LD `RealEstateAgent`/`LocalBusiness` or `__NEXT_DATA__` | ⛔ Akamai |
+| 20 | **RealEstateIndia** `realestateindia` | sale, rent, projects, agents | SSR cards + the site's own "View More Results" POST (`property_fetch_results.php`); agents first page only (load-more disallowed by robots.txt) | ✅ |
 
 \* Checked on 2026-10-24 from a US cloud IP. "⛔" means the **site** refused that IP
 (Akamai / F5 / CloudFront / TCP reset), not a crawler error. Those crawlers are built
