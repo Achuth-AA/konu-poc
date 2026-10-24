@@ -1,3 +1,5 @@
+<img src="dashboard/public/konu-logo.png" alt="Konu" width="96" />
+
 # konu-poc
 
 Crawlers for 20 Hyderabad / Telangana real-estate data sources: government

@@ -5,11 +5,8 @@ export default function Header({ overview, error, at }) {
   return (
     <header className="flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-line pb-5">
       <div className="flex items-center gap-3">
-        <img src="/favicon.svg" alt="" width="34" height="34" className="rounded-lg" />
-        <div>
-          <div className="font-display text-[19px] font-bold leading-tight">Konu</div>
-          <div className="text-[12px] text-muted">Hyderabad property data</div>
-        </div>
+        <img src="/konu-logo.png" alt="Konu" width="44" height="44" className="rounded-xl border border-line bg-white" />
+        <div className="text-[13px] leading-tight text-muted">Hyderabad<br />property data</div>
       </div>
       <div className="flex items-center gap-2 rounded-full border border-line bg-panel px-3 py-1.5 text-[12.5px]" role="status" aria-live="polite">
         <span className={`h-2 w-2 rounded-full ${DEMO ? 'bg-manual' : ok ? 'bg-live breathe' : 'bg-blocked'}`} />
