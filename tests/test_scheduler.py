@@ -44,13 +44,19 @@ def test_upsert_dedupes_and_csv_has_requested_columns(tmp_path):
     rec = {"source": "realestateindia", "kind": "listing", "source_id": "1", "url": "https://x/1", "title": "2 BHK Flat for Rent in Miyapur",
            "transaction": "rent", "price": 41000.0, "area_sqft": 1277.0, "bedrooms": 2.0, "locality": "Miyapur", "city": "hyderabad",
            "posted_at": "21 Oct, 2026"}
-    project = {**rec, "kind": "project", "url": "https://x/p"}
+    project = {**rec, "kind": "project", "source_id": "p1", "url": "https://x/p"}
     assert st.upsert([rec, project]) == 2
     assert st.upsert([{**rec, "price": 42000.0}]) == 0  # same URL: updated, not duplicated
-    st.save_details("https://x/1", {"floor": "10th", "total_floors": "15", "balconies": "2", "facing": "East"}, "ok")
+    st.save_details(S.Store.key(rec), {"floor": "10th", "total_floors": "15", "balconies": "2", "facing": "East"}, "ok")
     assert S.write_csv(st, c) == 1  # projects are not listing rows
     rows = list(csv.DictReader(open(c["csv"])))
     assert list(rows[0])[:len(COLUMNS)] == COLUMNS
     r = rows[0]
     assert (r["Price_INR"], r["Floor_Number"], r["Balconies"], r["Facing"], r["YearMonth"], r["Cement_Price_Rs_per_bag_50kg"]) == \
         ("42000", "10.0", "2.0", "East", "2026-10", "380")
+
+
+def test_rows_sharing_a_page_url_stay_separate(tmp_path):
+    st = S.Store(tmp_path / "k.db")
+    rows = [{"source": "hmda", "kind": "layout", "source_id": f"LO/{i}", "url": "https://hmda/LO.aspx"} for i in range(3)]
+    assert st.upsert(rows) == 3

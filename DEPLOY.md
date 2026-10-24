@@ -28,11 +28,17 @@ the container with `--restart unless-stopped`. It does the same on every reboot,
 the latest `main`, so **to update: push to `main`, then reboot the VM** (or re-run the
 startup script with `sudo google_metadata_script_runner startup`).
 
+It also prints `BACKEND_URL` and `KONU_API_KEY` for the dashboard: the VM runs a second
+container, `konu-api` (port 8000, needs header `X-API-Key`), that the Vercel dashboard reads.
+See [dashboard/README.md](dashboard/README.md) for the Vercel side (Root Directory `dashboard`,
+those two environment variables, deploy).
+
 ## 2. Check it is working
 
 ```bash
 gcloud compute ssh konu-crawler --zone asia-south1-a
 sudo docker logs -f konu-crawler                       # live log
+curl -s -H "X-API-Key: <key>" localhost:8000/api/overview   # what the dashboard sees
 cat /var/konu/data/status.json                         # last result of every job
 head -3 /var/konu/data/hyderabad_listings.csv
 ```

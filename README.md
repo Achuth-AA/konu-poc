@@ -32,6 +32,14 @@ and hard timeout (`deploy/schedule.json`), new listings get their detail pages, 
 JSONL files. See **[DEPLOY.md](DEPLOY.md)** for the GCP (Mumbai) setup: Dockerfile,
 VM script, systemd unit.
 
+## Live dashboard
+
+`dashboard/` is a React + Tailwind site (deploys to Vercel) that shows the crawler live:
+KPI cards, an n8n-style zoomable canvas of websites → crawler → cleaning → database →
+CSV with data flowing along the lines (green = working, red = blocked, amber = needs a
+person), and the recent crawler runs. It reads `python -m konu_crawlers serve`, the
+API that runs next to the scheduler on the GCP VM. Setup: [dashboard/README.md](dashboard/README.md).
+
 ## Diagnosing a site: `doctor`
 
 ```bash
