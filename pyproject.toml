@@ -7,11 +7,11 @@ name = "konu-crawlers"
 version = "0.1.0"
 description = "Crawlers for Hyderabad / Telangana real-estate sources (RERA, HMDA, GHMC, IGRS, Bhu Bharati and 14 listing portals)"
 requires-python = ">=3.10"
-dependencies = ["requests>=2.31", "beautifulsoup4>=4.12", "lxml>=5"]
+dependencies = ["requests>=2.31", "beautifulsoup4>=4.12", "lxml>=5", "fastapi>=0.115", "uvicorn>=0.32"]
 
 [project.optional-dependencies]
 browser = ["playwright>=1.45"]
-test = ["pytest>=8"]
+test = ["pytest>=8", "httpx>=0.27"]
 
 [project.scripts]
 konu-crawl = "konu_crawlers.cli:main"

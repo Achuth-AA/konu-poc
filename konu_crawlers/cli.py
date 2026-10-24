@@ -102,6 +102,38 @@ def cmd_schedule(a: argparse.Namespace) -> int:
     return run(a.config, once=a.once)
 
 
+def cmd_serve(a: argparse.Namespace) -> int:
+    from .api import serve
+
+    return serve(a.config, a.host, a.port)
+
+
+def cmd_ingest(a: argparse.Namespace) -> int:
+    """Load JSONL files from `crawl` (and cached detail pages) into the scheduler's store."""
+    import glob
+    import json as _json
+    from pathlib import Path
+
+    from .export import _cache_path
+    from .models import Record
+    from .scheduler import Store, load_config
+
+    cfg = load_config(a.config)
+    store = Store(Path(cfg["data_dir"]) / "konu.db")
+    n = new = d = 0
+    for f in sorted({x for pat in a.inputs for x in glob.glob(pat)}):
+        recs = [_json.loads(l) for l in open(f, encoding="utf-8") if l.strip()]
+        new += store.upsert(recs)
+        n += len(recs)
+        for r in recs:
+            cp = _cache_path(Path(a.cache), Record(**r))
+            if cp.exists():
+                store.save_details(Store.key(r), _json.loads(cp.read_text()), "ok")
+                d += 1
+    print(f"ingested {n} records ({new} new), {d} cached detail pages, into {cfg['data_dir']}/konu.db", file=sys.stderr)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="konu_crawlers", description="Crawl Hyderabad real-estate sources into JSONL/CSV.")
     p.add_argument("-v", "--verbose", action="store_true")
@@ -147,6 +179,16 @@ def main(argv: list[str] | None = None) -> int:
     sc.add_argument("--config", default="deploy/schedule.json")
     sc.add_argument("--once", action="store_true", help="run every due job once, update the CSV, then exit")
     sc.set_defaults(func=cmd_schedule)
+    sv = sub.add_parser("serve", help="read-only HTTP API for the dashboard (reads the scheduler's store)")
+    sv.add_argument("--config", default="deploy/schedule.json")
+    sv.add_argument("--host", default="0.0.0.0")
+    sv.add_argument("--port", type=int, default=8000)
+    sv.set_defaults(func=cmd_serve)
+    ig = sub.add_parser("ingest", help="load crawl JSONL files into the scheduler's store")
+    ig.add_argument("inputs", nargs="+")
+    ig.add_argument("--config", default="deploy/schedule.json")
+    ig.add_argument("--cache", default="data/details_cache")
+    ig.set_defaults(func=cmd_ingest)
     a = p.parse_args(argv)
     level = logging.DEBUG if a.verbose else logging.INFO if a.cmd == "schedule" else logging.WARNING
     logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")

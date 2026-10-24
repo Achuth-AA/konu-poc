@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Survey-sheet palette: cool paper + ink, one deep-green accent, three signal colours.
+   Light first; dark follows the OS setting. Values are "R G B" for Tailwind alpha. */
+:root {
+  --paper: 243 244 239;
+  --panel: 252 252 249;
+  --ink: 22 27 25;
+  --muted: 96 105 100;
+  --line: 219 222 214;
+  --accent: 18 48 42;
+  --live: 21 140 92;
+  --blocked: 205 64 50;
+  --manual: 186 122 14;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: 13 16 15;
+    --panel: 21 25 23;
+    --ink: 232 236 231;
+    --muted: 150 159 153;
+    --line: 43 50 46;
+    --accent: 135 224 184;
+    --live: 76 208 146;
+    --blocked: 255 112 96;
+    --manual: 238 178 72;
+    color-scheme: dark;
+  }
+}
+
+html, body { background: rgb(var(--paper)); color: rgb(var(--ink)); }
+body { font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+.tnum { font-variant-numeric: tabular-nums; }
+h1, h2, h3 { text-wrap: balance; }
+
+/* Data flowing along a live pipe: dashes travel toward the crawler. */
+@keyframes flow { to { stroke-dashoffset: -24; } }
+.pipe-live { stroke-dasharray: 2 10; animation: flow 1.1s linear infinite; }
+/* The live dot breathes; nothing else moves on its own. */
+@keyframes breathe { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(.82); } }
+.breathe { animation: breathe 2.4s cubic-bezier(0.23, 1, 0.32, 1) infinite; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.rise { animation: rise .45s cubic-bezier(0.23, 1, 0.32, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pipe-live, .breathe, .rise { animation: none !important; }
+  * { transition-duration: 0ms !important; }
+}
+
+:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; border-radius: 6px; }
+
+/* React Flow, themed with our tokens so it follows light/dark */
+.react-flow { --xy-background-color: transparent; }
+.react-flow__controls { box-shadow: none; border: 1px solid rgb(var(--line)); border-radius: 10px; overflow: hidden; }
+.react-flow__controls-button { background: rgb(var(--panel)); border-bottom: 1px solid rgb(var(--line)); color: rgb(var(--ink)); width: 30px; height: 30px; }
+.react-flow__controls-button:hover { background: rgb(var(--paper)); }
+.react-flow__controls-button svg { fill: currentColor; }
+.react-flow__minimap { background: rgb(var(--panel)); border: 1px solid rgb(var(--line)); border-radius: 10px; overflow: hidden; }
+.react-flow__node { cursor: default; }
+.react-flow__node-source { cursor: pointer; }
+.react-flow__handle { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .particle { display: none; } }

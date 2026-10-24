@@ -92,12 +92,18 @@ class Store:
             """
         )
 
+    @staticmethod
+    def key(r: dict) -> str:
+        """Stable identity: the site's own id when it has one (HMDA rows share
+        one page URL), else the listing URL."""
+        return f"{r['source']}:{r['source_id']}" if r.get("source_id") else (r.get("url") or f"{r['source']}:?")
+
     def upsert(self, recs: list[dict]) -> int:
         """Insert or refresh records; returns how many were new."""
         t = iso(now())
         new = 0
         for r in recs:
-            key = r.get("url") or f"{r['source']}:{r.get('source_id')}"
+            key = self.key(r)
             cur = self.db.execute("SELECT 1 FROM records WHERE key=?", (key,)).fetchone()
             if cur:
                 self.db.execute("UPDATE records SET json=?, last_seen=? WHERE key=?", (json.dumps(r, ensure_ascii=False, default=str), t, key))

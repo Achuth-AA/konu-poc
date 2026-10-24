@@ -28,11 +28,17 @@ the container with `--restart unless-stopped`. It does the same on every reboot,
 the latest `main`, so **to update: push to `main`, then reboot the VM** (or re-run the
 startup script with `sudo google_metadata_script_runner startup`).
 
+It also prints `BACKEND_URL` and `KONU_API_KEY` for the dashboard: the VM runs a second
+container, `konu-api` (port 8000, needs header `X-API-Key`), that the Vercel dashboard reads.
+See [dashboard/README.md](dashboard/README.md) for the Vercel side (Root Directory `dashboard`,
+those two environment variables, deploy).
+
 ## 2. Check it is working
 
 ```bash
 gcloud compute ssh konu-crawler --zone asia-south1-a
 sudo docker logs -f konu-crawler                       # live log
+curl -s -H "X-API-Key: <key>" localhost:8000/api/overview   # what the dashboard sees
 cat /var/konu/data/status.json                         # last result of every job
 head -3 /var/konu/data/hyderabad_listings.csv
 ```
@@ -88,3 +94,33 @@ sudo .venv/bin/python -m playwright install --with-deps chromium
 sudo chown -R konu /opt/konu-poc
 sudo cp deploy/konu-crawler.service /etc/systemd/system/ && sudo systemctl enable --now konu-crawler
 ```
+
+## Automatic deploys (GitHub Actions)
+
+`.github/workflows/backend.yml` runs on every change to the backend:
+
+1. **test**: installs `requirements.txt` and runs the test suite.
+2. **docker**: builds the same image the VM builds and smoke-tests it.
+3. **deploy** (pushes to `main`, or *Actions → backend → Run workflow*): SSHes to the VM,
+   re-runs the startup script (pull `main`, rebuild, restart `konu-crawler` and `konu-api`),
+   then waits for `http://<VM IP>:8000/api/health`. The SQLite store and CSV on the VM's disk are kept.
+
+The deploy step needs a service account, created once from Cloud Shell:
+
+```bash
+PROJECT=<your-project>
+gcloud iam service-accounts create konu-deployer --project $PROJECT
+for role in roles/compute.instanceAdmin.v1 roles/iam.serviceAccountUser; do
+  gcloud projects add-iam-policy-binding $PROJECT \
+    --member "serviceAccount:konu-deployer@$PROJECT.iam.gserviceaccount.com" --role $role
+done
+gcloud iam service-accounts keys create key.json \
+  --iam-account konu-deployer@$PROJECT.iam.gserviceaccount.com
+```
+
+Then in GitHub → **Settings → Secrets and variables → Actions** add `GCP_SA_KEY` (the whole
+contents of `key.json`; delete the file afterwards) and `GCP_PROJECT`. Optional: `GCP_ZONE`
+(default `asia-south1-a`) and `GCP_VM` (default `konu-crawler`). Without these secrets the
+workflow still tests and builds, and skips the deploy.
+
+`.github/workflows/dashboard.yml` checks that the dashboard builds; Vercel deploys it from `main` itself.
