@@ -30,8 +30,19 @@ def parse_listing_cards(html: str, transaction: str, city: str | None = None) ->
     for card in soup.select("article.sr-listing-card"):
         rows = card.select(".sr-config-row")
         cells = [c.get_text(" ", strip=True) for c in rows[0].find_all("span")] if rows else []
-        area_t = cells[0] if cells else None
-        price, price_max, price_text = price_from_text("₹ " + cells[1]) if len(cells) > 1 else (None, None, None)
+        # Listing rows: area | price | post date. Project rows: config label | area | price,
+        # one row per BHK type, so take the range across all rows.
+        areas = [text_of(r, ".sr-config-area") for r in rows]
+        prices = [text_of(r, ".sr-config-price") for r in rows]
+        area_t = " / ".join(a for a in areas if a) or None
+        lo = [price_from_text("₹ " + p) for p in prices if p]
+        lo = [x for x in lo if x[0]]
+        price = min(x[0] for x in lo) if lo else None
+        price_max = max(x[1] or x[0] for x in lo) if lo else None
+        price_max = price_max if price_max and price and price_max > price else None
+        price_text = " / ".join(x[2] for x in lo if x[2]) or None
+        labels = [text_of(r, ".sr-config-label") for r in rows]
+        posted = cells[2] if len(cells) > 2 and not any(labels) else None
         cta = card.select_one("[data-listing-id][data-listing-button]")
         title = text_of(card, ".sr-card-title")
         loc = text_of(card, ".sr-card-location")
@@ -52,19 +63,19 @@ def parse_listing_cards(html: str, transaction: str, city: str | None = None) ->
                 price=price,
                 price_max=price_max,
                 price_text=price_text,
-                area_sqft=area_to_sqft(area_t),
+                area_sqft=area_to_sqft((areas[0] or "").split("-")[0] + " sqft") if areas and areas[0] else None,
                 area_text=area_t,
-                bedrooms=parse_bhk(title),
+                bedrooms=parse_bhk(labels[0] if labels and labels[0] else title),
                 locality=clean_text(loc_m.group(1)) if loc_m else None,
                 city=city,
                 address=loc,
                 posted_by=text_of(card, ".sr-agent-meta"),
                 contact_name=text_of(card, ".sr-agent-name"),
                 status=next((t for t in tags if re.search(r"ready|construction|furnish", t, re.I)), None),
-                posted_at=cells[2] if len(cells) > 2 else None,
+                posted_at=posted,
                 image_url=absolute(BASE, img.get("src")) if img else None,
                 description=clean_text(desc.get("data-full")) if desc else None,
-                raw={"tags": tags, "config": cells},
+                raw={"tags": tags, "config": [dict(label=l, area=a, price=p) for l, a, p in zip(labels, areas, prices)]},
             )
         )
     return out

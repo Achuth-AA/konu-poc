@@ -82,6 +82,12 @@ def cmd_crawl(a: argparse.Namespace) -> int:
     return 0 if any(c for _, _, c, _, _ in summary) else 1
 
 
+def cmd_doctor(a: argparse.Namespace) -> int:
+    from .doctor import run
+
+    return run(a.source, a.out, a.proxy, a.delay, a.interactive, a.captcha)
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="konu_crawlers", description="Crawl Hyderabad real-estate sources into JSONL/CSV.")
     p.add_argument("-v", "--verbose", action="store_true")
@@ -103,6 +109,14 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--captcha", help="captcha text for interactive sources (if you read the image yourself)")
     c.add_argument("--opt", action="append", metavar="KEY=VALUE", help="source-specific option (repeatable), e.g. --opt district=Hyderabad")
     c.set_defaults(func=cmd_crawl)
+    d = sub.add_parser("doctor", help="one page per source/type, saving every raw response + report.json into a zip to send back")
+    d.add_argument("source", nargs="*", help="source name(s); default all")
+    d.add_argument("--out", help="folder to write (default konu-doctor-<timestamp>)")
+    d.add_argument("--proxy", help="HTTP(S) proxy URL (or KONU_PROXY)")
+    d.add_argument("--delay", type=float, default=1.5)
+    d.add_argument("--interactive", action="store_true", help="prompt for TS-RERA / IGRS / Bhu Bharati captchas")
+    d.add_argument("--captcha", help="TS-RERA captcha text, if you read the image yourself")
+    d.set_defaults(func=cmd_doctor)
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if a.verbose else logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
     return a.func(a)

@@ -207,3 +207,26 @@ def test_cli_crawl_writes_csv(tmp_path, monkeypatch):
     assert main(["crawl", "magicbricks", "--type", "rent", "--out", str(out), "--no-raw"]) == 0
     lines = (tmp_path / "magicbricks.csv").read_text().splitlines()
     assert lines[0].startswith("source,kind,source_id") and len(lines) == 31
+
+
+def test_doctor_saves_pages_and_report(tmp_path, monkeypatch):
+    from konu_crawlers import doctor
+
+    page = load("magicbricks_rent.html")
+
+    def fake_request(self, method, url, *, check=True, **kw):
+        resp = Response(url, 200, page if "pppfr" in url and "page=" not in url else "<html></html>", {"Content-Type": "text/html"}, b"")
+        self._save(method, url, resp, None)
+        if check:
+            self.check_blocked(resp)
+        return resp
+
+    monkeypatch.setattr(doctor.RecordingFetcher, "request", fake_request)
+    monkeypatch.setattr(doctor, "_network_info", lambda f: {"country": "IN"})
+    out = tmp_path / "doc"
+    assert doctor.run(["magicbricks"], str(out), None, 0, False, None) == 0
+    report = json.loads((out / "report.json").read_text())
+    rent = next(r for r in report["runs"] if r["type"] == "rent")
+    assert rent["outcome"] == "ok" and rent["records"] == 30 and rent["requests"][0]["file"]
+    assert (out / "magicbricks__rent" / rent["requests"][0]["file"]).exists()
+    assert (tmp_path / "doc.zip").exists()

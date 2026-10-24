@@ -71,6 +71,8 @@ def test_roofandfloor_cards_and_fragment():
         recs = roofandfloor.parse_listing_cards(load(name), "sale", "hyderabad")
         assert len(recs) == 10
         assert all(r.price and r.area_sqft for r in recs)
+        projects = [r for r in recs if r.kind == "project"]
+        assert all(r.price > 1_000_000 and r.area_sqft > 300 for r in projects)  # not ₹/sqft or a BHK count
         for r in recs:  # "load more" batches mix in builder projects
             assert r.url.startswith("https://www.roofandfloor.com/" + ("propertydetail/" if r.kind == "listing" else "hyderabad/project/"))
 
