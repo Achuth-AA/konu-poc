@@ -111,3 +111,26 @@ def test_hmda_permissions():
     assert len(recs) == 25
     assert all(r.kind == "permission" and r.source_id for r in recs)
     assert recs[0].property_type and recs[0].posted_at
+
+
+def test_realestateindia_listings():
+    from konu_crawlers.sources import realestateindia as rei
+
+    for name, trans in (("realestateindia_sale.html", "sale"), ("realestateindia_rent.html", "rent")):
+        recs = rei.parse_listings(load(name), "hyderabad", trans)
+        assert len(recs) >= 15 and all(r.transaction == trans and r.source_id.isdigit() for r in recs)
+        assert sum(1 for r in recs if r.price and r.area_sqft and r.locality) >= 10
+    frag = rei.parse_listings(load("realestateindia_frag_sale.html"), "hyderabad", "sale")
+    assert len(frag) == 20
+
+
+def test_realestateindia_projects_agents_and_load_more():
+    from konu_crawlers.sources import realestateindia as rei
+
+    projects = rei.parse_projects(load("realestateindia_proj.html"), "hyderabad")
+    assert len(projects) >= 15 and all(r.kind == "project" and r.url for r in projects)
+    assert sum(1 for r in projects if r.price) >= 10
+    agents = rei.parse_agents(load("realestateindia_agents.html"), "hyderabad")
+    assert len(agents) >= 15 and all(r.kind == "agent" and "/profile/" in r.url for r in agents)
+    endpoint, params = rei.load_more_request(load("realestateindia_sale.html"))
+    assert endpoint.endswith("/Functions/property_fetch_results.php") and params["city"] and params["propertyfor"] == "1"
