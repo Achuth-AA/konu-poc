@@ -122,7 +122,7 @@ function buildGraph(sources, o) {
   stage('k-listings', X.kinds, mid - 210, { title: 'Listings', big: num(o?.listings), unit: 'homes for sale / rent', note: 'One per advertised home' })
   stage('k-projects', X.kinds, mid, { title: 'New projects', big: num(o?.projects), unit: 'builder projects', note: 'Price ranges, builders' })
   stage('k-gov', X.kinds, mid + 210, { title: 'Govt registers', big: num(o?.government_records), unit: 'layouts & permissions', note: 'HMDA and other registers' })
-  stage('clean', X.clean, mid - 210, { title: 'Cleaning', big: num(p.enriched), unit: 'listings enriched', note: p.pending_details ? `${num(p.pending_details)} still to open` : 'Floor, facing, parking, age…' })
+  stage('clean', X.clean, mid - 210, { title: 'Details & cleaning', big: num(p.enriched), unit: 'listings completed', note: p.pending_details ? `Opens each listing page, standardises values · ${num(p.pending_details)} queued` : 'Opens each listing page, standardises values', w: 190 })
   stage('db', X.db, mid, { title: 'Database', big: num(p.crawled), unit: 'records stored', note: 'Updated, never duplicated', shape: 'db', size: 118, w: 190 })
   stage('csv', X.out, mid - 130, { title: 'Your CSV table', big: num(p.in_csv), unit: 'rows · 30 columns', note: 'Download from the top right' })
   stage('api', X.out, mid + 130, { title: 'Dashboard API', big: '30 s', unit: 'refresh interval', note: 'Feeds this page', tone: 'muted' })

@@ -1,0 +1,92 @@
+# Backend CI/CD: crawlers + scheduler + API.
+#  - every push / PR touching the backend: run the tests and build the Docker image
+#  - push to main (or "Run workflow"): redeploy the GCP VM, then check /api/health
+# Deploy needs repository secrets (Settings → Secrets and variables → Actions):
+#   GCP_SA_KEY   JSON key of a service account with roles: Compute Instance Admin (v1),
+#                Service Account User, IAP-secured Tunnel User (optional)
+#   GCP_PROJECT  e.g. my-project-123
+#   GCP_ZONE     e.g. asia-south1-a        (optional, default asia-south1-a)
+#   GCP_VM       e.g. konu-crawler         (optional, default konu-crawler)
+# Without GCP_SA_KEY the deploy job is skipped (tests still run).
+name: backend
+
+on:
+  push:
+    branches: [main]
+    paths: ['konu_crawlers/**', 'tests/**', 'deploy/**', 'Dockerfile', 'requirements.txt', 'pyproject.toml', '.github/workflows/backend.yml']
+  pull_request:
+    paths: ['konu_crawlers/**', 'tests/**', 'deploy/**', 'Dockerfile', 'requirements.txt', 'pyproject.toml', '.github/workflows/backend.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: false   # never interrupt a deploy half-way
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q
+
+  docker:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the crawler image (same Dockerfile the VM builds)
+        run: docker build -t konu-crawler .
+      - name: Smoke-test the image
+        run: |
+          docker run --rm konu-crawler python -m konu_crawlers list | tee list.txt
+          test "$(grep -c '^[a-z0-9_]' list.txt)" -ge 21   # header + 20 sources
+          docker run --rm konu-crawler python -c "import konu_crawlers.api, playwright; print('api + playwright ok')"
+
+  deploy:
+    needs: [test, docker]
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      PROJECT: ${{ secrets.GCP_PROJECT }}
+      ZONE: ${{ secrets.GCP_ZONE || 'asia-south1-a' }}
+      VM: ${{ secrets.GCP_VM || 'konu-crawler' }}
+    steps:
+      - name: Check deploy secrets
+        id: gate
+        run: |
+          if [ -z "${{ secrets.GCP_SA_KEY }}" ] || [ -z "$PROJECT" ]; then
+            echo "::notice::GCP_SA_KEY / GCP_PROJECT not set – skipping deploy (tests and image build passed)."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.gate.outputs.ok == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - if: steps.gate.outputs.ok == 'true'
+        uses: google-github-actions/setup-gcloud@v2
+      - name: Redeploy on the VM (pull main, rebuild, restart both containers)
+        if: steps.gate.outputs.ok == 'true'
+        run: |
+          gcloud compute ssh "$VM" --project "$PROJECT" --zone "$ZONE" --quiet \
+            --command "sudo google_metadata_script_runner startup"
+      - name: Wait for the API to answer
+        if: steps.gate.outputs.ok == 'true'
+        run: |
+          IP=$(gcloud compute instances describe "$VM" --project "$PROJECT" --zone "$ZONE" \
+                 --format 'get(networkInterfaces[0].accessConfigs[0].natIP)')
+          for i in $(seq 1 30); do
+            if curl -fsS "http://$IP:8000/api/health"; then echo; echo "API healthy at http://$IP:8000"; exit 0; fi
+            sleep 10
+          done
+          echo "::error::API did not become healthy at http://$IP:8000"; exit 1
