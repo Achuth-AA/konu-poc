@@ -88,6 +88,14 @@ def cmd_doctor(a: argparse.Namespace) -> int:
     return run(a.source, a.out, a.proxy, a.delay, a.interactive, a.captcha)
 
 
+def cmd_export(a: argparse.Namespace) -> int:
+    from .export import load_materials, run
+
+    mats = load_materials(a.materials, a.cement_price, a.steel_price)
+    return run(a.inputs or ["data/*.jsonl"], a.out, not a.no_details, a.cache, mats, a.delay, a.proxy,
+               [s.strip() for s in a.sources.split(",")] if a.sources else None)
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="konu_crawlers", description="Crawl Hyderabad real-estate sources into JSONL/CSV.")
     p.add_argument("-v", "--verbose", action="store_true")
@@ -117,6 +125,18 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--interactive", action="store_true", help="prompt for TS-RERA / IGRS / Bhu Bharati captchas")
     d.add_argument("--captcha", help="TS-RERA captcha text, if you read the image yourself")
     d.set_defaults(func=cmd_doctor)
+    e = sub.add_parser("export", help="crawled listings -> one CSV in the analysis column layout (fetches detail pages)")
+    e.add_argument("inputs", nargs="*", help="JSONL files/globs from `crawl` (default data/*.jsonl)")
+    e.add_argument("--out", default="data/hyderabad_listings.csv")
+    e.add_argument("--sources", help="comma-separated sources to include (default all)")
+    e.add_argument("--no-details", action="store_true", help="skip detail pages (faster, fewer columns filled)")
+    e.add_argument("--cache", default="data/details_cache", help="where detail-page facts are cached")
+    e.add_argument("--materials", help="CSV with YearMonth,cement,steel for the material-price columns")
+    e.add_argument("--cement-price", type=float, help="flat cement price (Rs per 50 kg bag) for every row")
+    e.add_argument("--steel-price", type=float, help="flat TMT steel price (Rs per tonne) for every row")
+    e.add_argument("--delay", type=float, default=1.5)
+    e.add_argument("--proxy")
+    e.set_defaults(func=cmd_export)
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if a.verbose else logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
     return a.func(a)

@@ -349,3 +349,43 @@ def form_fields(soup: Any, form_id: str | None = None) -> dict[str, str]:
         opt = sel.find("option", selected=True) or sel.find("option")
         data[name] = opt.get("value", opt.get_text(strip=True)) if opt else ""
     return data
+
+
+def label_values(html_or_soup: Any, labels: Iterable[str], max_len: int = 80) -> dict[str, str]:
+    """Pull ``Label: value`` facts out of a detail page, whatever the markup.
+
+    For each wanted label, finds the smallest element whose own text is the
+    label (optionally followed by ':'), then takes the value from its next
+    sibling element, or else from the rest of its parent's text. Labels are
+    matched case-insensitively; the first plausible value wins.
+    """
+    soup = BeautifulSoup(html_or_soup, "lxml") if isinstance(html_or_soup, str) else html_or_soup
+    wanted = {re.sub(r"\W+", " ", l).strip().lower(): l for l in labels}
+    out: dict[str, str] = {}
+    for el in soup.find_all(string=True):
+        if el.parent is None or el.parent.name in ("script", "style", "title", "option"):
+            continue
+        key = re.sub(r"\W+", " ", str(el)).strip().lower()
+        if key not in wanted or wanted[key] in out:
+            continue
+        node = el.parent
+        value = None
+        for _ in range(3):  # climb a little if the label sits in a <b>/<span> wrapper
+            sib = node.find_next_sibling()
+            if sib is not None:
+                v = clean_text(sib.get_text(" ", strip=True))
+                if v and len(v) <= max_len and v.lower() != key:
+                    value = v
+                    break
+            parent_text = clean_text(node.parent.get_text(" ", strip=True)) if node.parent else None
+            if parent_text and parent_text.lower().startswith(str(el).strip().lower()):
+                rest = parent_text[len(str(el).strip()):].lstrip(" :-|")
+                if rest and len(rest) <= max_len:
+                    value = rest
+                    break
+            node = node.parent
+            if node is None:
+                break
+        if value:
+            out[wanted[key]] = value
+    return out

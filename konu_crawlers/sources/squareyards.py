@@ -48,7 +48,9 @@ def parse_cards(html: str, city: str | None = None) -> list[Record]:
             project_name=clean_text(a.get("data-projectname")),
             posted_by={"CP": "Agent", "EMPLOYEE": "Square Yards", "OWNER": "Owner"}.get(a.get("data-user-type", ""), a.get("data-user-type")),
             contact_name=clean_text(a.get("data-username")),
-            status=a.get("data-propstatus"),
+            # data-propstatus is possession for sale cards but furnishing for rentals
+            status=a.get("data-propstatus") if not kind.startswith("rent") else None,
+            furnishing=a.get("data-propstatus") if kind.startswith("rent") else None,
             image_url=a.get("data-image"),
             raw={k[5:]: v for k, v in a.items() if k.startswith("data-")},
         )
