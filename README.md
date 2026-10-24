@@ -23,6 +23,15 @@ for rec in get_crawler("squareyards").crawl(city="hyderabad", transaction="sale"
     print(rec.title, rec.price, rec.locality, rec.latitude, rec.longitude)
 ```
 
+## Running continuously on a server
+
+`python -m konu_crawlers schedule` runs forever: each source/type has its own interval
+and hard timeout (`deploy/schedule.json`), new listings get their detail pages, and
+`data/hyderabad_listings.csv` is rewritten after every cycle in the analysis layout
+(URL, YearMonth … Full_Address, plus Source). `export` builds the same CSV once from
+JSONL files. See **[DEPLOY.md](DEPLOY.md)** for the GCP (Mumbai) setup: Dockerfile,
+VM script, systemd unit.
+
 ## Diagnosing a site: `doctor`
 
 ```bash
