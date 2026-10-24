@@ -1,0 +1,22 @@
+# systemd unit for running without Docker:
+#   sudo cp deploy/konu-crawler.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now konu-crawler
+#   journalctl -u konu-crawler -f
+[Unit]
+Description=konu real-estate crawler scheduler
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=konu
+WorkingDirectory=/opt/konu-poc
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/konu-poc/.venv/bin/python -m konu_crawlers schedule --config deploy/schedule.json
+Restart=always
+RestartSec=30
+# Give an in-flight crawl time to stop cleanly
+TimeoutStopSec=90
+
+[Install]
+WantedBy=multi-user.target

@@ -96,6 +96,12 @@ def cmd_export(a: argparse.Namespace) -> int:
                [s.strip() for s in a.sources.split(",")] if a.sources else None)
 
 
+def cmd_schedule(a: argparse.Namespace) -> int:
+    from .scheduler import run
+
+    return run(a.config, once=a.once)
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="konu_crawlers", description="Crawl Hyderabad real-estate sources into JSONL/CSV.")
     p.add_argument("-v", "--verbose", action="store_true")
@@ -137,8 +143,13 @@ def main(argv: list[str] | None = None) -> int:
     e.add_argument("--delay", type=float, default=1.5)
     e.add_argument("--proxy")
     e.set_defaults(func=cmd_export)
+    sc = sub.add_parser("schedule", help="run continuously: crawl on per-source intervals, keep data/hyderabad_listings.csv current")
+    sc.add_argument("--config", default="deploy/schedule.json")
+    sc.add_argument("--once", action="store_true", help="run every due job once, update the CSV, then exit")
+    sc.set_defaults(func=cmd_schedule)
     a = p.parse_args(argv)
-    logging.basicConfig(level=logging.DEBUG if a.verbose else logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
+    level = logging.DEBUG if a.verbose else logging.INFO if a.cmd == "schedule" else logging.WARNING
+    logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     return a.func(a)
 
 
