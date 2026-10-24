@@ -23,6 +23,20 @@ for rec in get_crawler("squareyards").crawl(city="hyderabad", transaction="sale"
     print(rec.title, rec.price, rec.locality, rec.latitude, rec.longitude)
 ```
 
+## Diagnosing a site: `doctor`
+
+```bash
+python -m konu_crawlers doctor                 # every source, one page of each --type
+python -m konu_crawlers doctor 99acres housing  # only some
+python -m konu_crawlers doctor --interactive    # also type the TS-RERA captcha when asked
+```
+
+It saves every raw response each crawler received (HTML, captcha images, redirects),
+the parsed records, and `report.json` (outcome per source/type, field coverage, the
+country the sites saw you in), then zips the folder (`konu-doctor-<timestamp>.zip`).
+Run it from the network you will crawl from and send the zip back: parsers for the
+sites that block non-Indian IPs can then be fixed against the real pages.
+
 ## Sources
 
 | # | Source | `--type` | How it gets the data | Live check, 2026-10-24* |
