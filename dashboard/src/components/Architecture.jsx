@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Background, BaseEdge, BackgroundVariant, Controls, Handle, MiniMap, Panel, Position, ReactFlow,
+  Background, BaseEdge, BackgroundVariant, Controls, EdgeLabelRenderer, Handle, MiniMap, Panel, Position, ReactFlow,
   ReactFlowProvider, getBezierPath, useReactFlow,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { STATE, num } from '../lib.js'
+import { backendNodeTypes, buildBackendGraph } from './BackendFlow.jsx'
 
 const GROUPS = [
   ['Government', 'Government registers'],
@@ -17,7 +18,7 @@ const ROW = 58
 /* ---------- edges: a faint wire plus particles travelling along it ---------- */
 
 function FlowEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data }) {
-  const [path] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, curvature: 0.35 })
+  const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, curvature: 0.35 })
   const st = STATE[data?.state] || STATE.pending
   const live = data?.state === 'live' || data?.state === 'stage'
   const color = data?.state === 'stage' ? 'rgb(var(--accent))' : st.stroke
@@ -31,7 +32,15 @@ function FlowEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targ
           <animateMotion dur={`${dur}s`} repeatCount="indefinite" begin={`${(-dur * i) / dots}s`} path={path} calcMode="spline" keyPoints="0;1" keyTimes="0;1" keySplines="0.4 0 0.6 1" />
         </circle>
       ))}
-      {!live && data?.state !== 'pending' && (
+      {data?.label && (
+        <EdgeLabelRenderer>
+          <div className="nodrag nopan pointer-events-none absolute rounded-full border bg-panel px-2 py-0.5 text-[10.5px] font-medium"
+            style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, borderColor: color, color }}>
+            {data.label}
+          </div>
+        </EdgeLabelRenderer>
+      )}
+      {!live && !data?.label && data?.state !== 'pending' && (
         <g transform={`translate(${(sourceX + targetX) / 2 - 60}, ${sourceY + (targetY - sourceY) * 0.18})`} opacity="0.85">
           <circle r="7" fill="rgb(var(--panel))" stroke={color} strokeWidth="1.2" />
           {data?.state === 'manual'
@@ -83,7 +92,7 @@ function GroupLabel({ data }) {
   return <div className="w-[236px] border-b border-line pb-1 text-[11px] font-medium uppercase tracking-[.1em] text-muted">{data.label} <span className="normal-case tracking-normal">· {data.count}</span></div>
 }
 
-const nodeTypes = { source: SourceNode, stage: StageNode, label: GroupLabel }
+const nodeTypes = { source: SourceNode, stage: StageNode, label: GroupLabel, ...backendNodeTypes }
 const edgeTypes = { flow: FlowEdge }
 
 /* ---------- graph ---------- */
@@ -139,8 +148,11 @@ function buildGraph(sources, o) {
   return { nodes, edges }
 }
 
-function Canvas({ sources, overview, selected, onSelect }) {
-  const { nodes, edges } = useMemo(() => buildGraph(sources, overview), [sources, overview])
+function Canvas({ sources, overview, selected, onSelect, view }) {
+  const { nodes, edges } = useMemo(
+    () => (view === 'backend' ? buildBackendGraph(overview, sources) : buildGraph(sources, overview)),
+    [sources, overview, view],
+  )
   const rf = useReactFlow()
   const first = useRef(true)
   useEffect(() => {
@@ -151,7 +163,8 @@ function Canvas({ sources, overview, selected, onSelect }) {
   }, [nodes.length, rf])
   const styled = useMemo(() => nodes.map((n) => ({ ...n, selected: n.id === selected })), [nodes, selected])
   const onNodeClick = useCallback((_, n) => { if (n.type === 'source') onSelect(n.id) }, [onSelect])
-  const mini = useCallback((n) => (n.type === 'source' ? (STATE[n.data.state] || STATE.pending).stroke : n.type === 'stage' ? 'rgb(var(--accent))' : 'transparent'), [])
+  const mini = useCallback((n) => (n.type === 'source' ? (STATE[n.data.state] || STATE.pending).stroke
+    : ['stage', 'step', 'decision'].includes(n.type) ? 'rgb(var(--accent))' : 'transparent'), [])
 
   return (
     <ReactFlow nodes={styled} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes}
@@ -163,7 +176,7 @@ function Canvas({ sources, overview, selected, onSelect }) {
       <Controls showInteractive={false} position="bottom-left" />
       <MiniMap pannable zoomable nodeColor={mini} nodeStrokeWidth={0} maskColor="rgb(var(--paper) / .7)" style={{ width: 168, height: 104 }} className="!hidden md:!block" />
       <Panel position="top-left" className="!m-3 hidden rounded-lg md:block border border-line bg-panel/90 px-3 py-1.5 text-[11.5px] text-muted backdrop-blur">
-        Drag to move · pinch or <kbd className="font-mono">Ctrl</kbd>+scroll to zoom · click a website
+        Drag to move · pinch or <kbd className="font-mono">Ctrl</kbd>+scroll to zoom{view === 'backend' ? '' : ' · click a website'}
       </Panel>
     </ReactFlow>
   )
@@ -180,7 +193,7 @@ export default function Architecture(props) {
   const toggle = () => (document.fullscreenElement ? document.exitFullscreen() : wrap.current?.requestFullscreen?.())?.catch?.(() => {})
   return (
     <div ref={wrap} className={`relative overflow-hidden rounded-xl border border-line bg-paper ${full ? 'h-screen' : 'h-[440px] md:h-[740px]'}`}>
-      <ReactFlowProvider>
+      <ReactFlowProvider key={props.view}>
         <Canvas {...props} />
       </ReactFlowProvider>
       <button type="button" onClick={toggle}
